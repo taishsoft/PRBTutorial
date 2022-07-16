@@ -6,6 +6,7 @@
 #include "../ShaderLibrary/Light.hlsl"
 #include "../ShaderLibrary/SpaceTransform.hlsl"
 #include "../ShaderLibrary/BRDF.hlsl"
+#include "../ShaderLibrary/Lighting.hlsl"
 
 struct Attributes
 {
@@ -62,6 +63,17 @@ half4 FragLitpass(Varyings input) : SV_Target
 	half3 irradiance = NoL * light.color;//pi的优化
 	//half3 irradiance = PI * NoL * light.color;
 	half3 color = DirectBRDF(brdfData, normalWS, light.direction, viewDir) * irradiance;
+
+	//间接光漫反射，实现方式：SH
+	//由于环境光没有固定的入射方向，因此使用法向量来代替来代替半角向量进行计算
+	half NoV = saturate(dot(normalWS, viewDir));
+	half3 indirectColor = 0;
+	half3 indirectDiffuse = SampleSH9(normalWS) * RCP_PI * albedo * _Color;
+	half3 ks = FresnelTerm(brdfData.f0, NoV);
+	half3 kd = (1 - ks) * (1 - brdfData.metallic);
+	indirectColor += kd * indirectDiffuse;
+
+	color += indirectColor;
 
 	return half4(color, 1);
 }
