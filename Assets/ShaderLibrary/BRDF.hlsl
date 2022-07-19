@@ -58,6 +58,12 @@ half3 FresnelTerm(half3 f0, half VoH)
 	return f0 + (1 - f0) * pow(1 - VoH, 5);
 }
 
+//ibl漫反射部分使用的Schlick
+half3 FresnelTerm_Roughness(half3 f0, half VoH, half roughness)
+{
+	return f0 + (max(1 - roughness, f0) - f0) * pow(1 - VoH, 5);
+}
+
 //计算直接光BRDF部分（漫反射 + 镜面反射）
 half3 DirectBRDF(BRDFData brdfData, half3 normalWS, half3 lightDirectionWS, half3 viewDirectionWS)
 {
