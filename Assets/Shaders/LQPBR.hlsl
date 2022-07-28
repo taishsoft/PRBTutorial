@@ -25,6 +25,9 @@ struct Varyings
 
 UNITY_DECLARE_TEX2D(_Albedo);
 UNITY_DECLARE_TEX2D(_MetalMap);
+UNITY_DECLARE_TEX2D(_BRDFLUT);
+
+samplerCUBE _IBLSpec;
 
 CBUFFER_START(UnityPerMaterial)
 half4 _Color;
@@ -72,6 +75,17 @@ half4 FragLitpass(Varyings input) : SV_Target
 	half3 ks = FresnelTerm_Roughness(brdfData.f0, NoV, brdfData.roughness);
 	half3 kd = (1 - ks) * (1 - brdfData.metallic);
 	indirectColor += kd * indirectDiffuse;
+
+	//ibl镜面反射
+	float3 reflectDir = reflect(-viewDir, normalWS);
+
+	half mip = PerceptualRoughnessToMipmapLevel(brdfData.perceptualRoughness);
+	float3 prefilteredColor = texCUBElod(_IBLSpec, float4(reflectDir, mip)).rgb;
+
+	//float3 prefilteredColor = texCUBElod(_IBLSpec, float4(reflectDir, brdfData.perceptualRoughness * 12)).rgb;
+	float4 scaleBias = UNITY_SAMPLE_TEX2D(_BRDFLUT, float2(NoV, brdfData.perceptualRoughness));
+	half3 indirectSpec = BRDFIBLSpec(brdfData, scaleBias.xy) * prefilteredColor;
+	indirectColor += indirectSpec;
 
 	color += indirectColor;
 

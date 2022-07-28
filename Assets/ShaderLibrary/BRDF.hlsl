@@ -4,6 +4,10 @@
 #define kDieletricSpec half4(0.04, 0.04, 0.04, 1.0 - 0.04) //standard dielectric reflectivity coef at incident angle (= 4%)
 #define INV_PI 0.31830989161357
 
+#ifndef UNITY_SPECCUBE_LOD_STEPS
+#define UNITY_SPECCUBE_LOD_STEPS 6
+#endif
+
 struct BRDFData
 {
 	half perceptualRoughness;	//感性粗糙度
@@ -17,6 +21,22 @@ struct BRDFData
 half PerceptualRoughnessToRoughness(half perceptualRoughness)
 {
 	return perceptualRoughness * perceptualRoughness;
+}
+
+// The *approximated* version of the non-linear remapping. It works by
+// approximating the cone of the specular lobe, and then computing the MIP map level
+// which (approximately) covers the footprint of the lobe with a single texel.
+// Improves the perceptual roughness distribution.
+half PerceptualRoughnessToMipmapLevel(half perceptualRoughness, uint mipMapCount)
+{
+	perceptualRoughness = perceptualRoughness * (1.7 - 0.7 * perceptualRoughness);
+
+	return perceptualRoughness * mipMapCount;
+}
+
+half PerceptualRoughnessToMipmapLevel(half perceptualRoughness)
+{
+	return PerceptualRoughnessToMipmapLevel(perceptualRoughness, UNITY_SPECCUBE_LOD_STEPS);
 }
 
 //初始化BRDF数据，这里直接参考了URP中的部分代码
@@ -85,6 +105,12 @@ half3 DirectBRDF(BRDFData brdfData, half3 normalWS, half3 lightDirectionWS, half
 
 	return kd * brdfData.albedo + specularTerm;//pi的优化
 	//return kd * INV_PI * brdfData.albedo + specularTerm;
+}
+
+//间接光镜面反射BRDF部分
+half3 BRDFIBLSpec(BRDFData brdfData, float2 scaleBias)
+{
+	return brdfData.f0 * scaleBias.x + scaleBias.y;
 }
 
 #endif
